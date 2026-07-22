@@ -1,0 +1,56 @@
+name: Image
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+env:
+  registry: ghcr.io/${{ github.actor }}
+  image-prefix: oidc-issuer-config-sync
+
+jobs:
+  image:
+    name: Push and attest image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: true
+      matrix:
+        entrypoint:
+          - push
+          - pull
+          - serve
+    steps:
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v4.1.2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Checkout
+        uses: actions/checkout@v7.0.0
+      - name: Build and push image
+        id: push
+        uses: docker/build-push-action@v5.0.0
+        with:
+          context: .
+          push: true
+          tags: ${{ env.registry }}/${{ env.image-prefix }}/${{ matrix.entrypoint }}:latest
+          build-args: |
+            ENTRYPOINT=${{ matrix.entrypoint }}
+      - name: Attest provenance
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ env.registry }}/${{ env.image-prefix }}/${{ matrix.entrypoint }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
