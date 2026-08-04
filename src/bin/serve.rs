@@ -57,7 +57,9 @@ async fn main() -> Result<()> {
             ruleset: landlock::RulesetStatus::FullyEnforced,
             no_new_privs: true,
             ..
-        } => {}
+        } => {
+            println!("landlock succeeded");
+        }
         status => anyhow::bail!(
             "unacceptable landlock ruleset enforcement: ruleset={:?}, no_new_prives={}",
             status.ruleset,
@@ -102,6 +104,10 @@ async fn main() -> Result<()> {
             .await
             .expect("failed to listen");
 
+        println!(
+            "listening on {}",
+            listener.local_addr().expect("has local addr")
+        );
         let req_tracker = accept_req_tracker.clone();
         loop {
             let stream = match listener.accept().await {
